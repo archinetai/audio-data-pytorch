@@ -34,7 +34,7 @@ WAVDataset(
 ```
 
 ### LJSpeech Dataset
-An unsupervised dataset for LJSpeech with voice only data
+An unsupervised dataset for LJSpeech with voice only data.
 ```py
 from audio_data_pytorch import LJSpeechDataset
 
@@ -85,6 +85,7 @@ dataset = YoutubeDataset(
 An example
 
 ```py
+from audio_data_pytorch import Resample, OverlapChannels, Crop, RandomCrop, Scale
 
 crop = Crop(22050) # Crop start of audio track
 
