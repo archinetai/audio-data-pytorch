@@ -4,7 +4,7 @@ import tarfile
 import requests  # type: ignore
 from tqdm import tqdm
 
-from .utils import camel_to_snake
+from ..utils import camel_to_snake
 from .wav_dataset import WAVDataset
 
 

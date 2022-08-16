@@ -8,7 +8,7 @@ import yt_dlp
 from torch.nn import functional as F
 from tqdm import tqdm
 
-from .utils import camel_to_snake, exists
+from ..utils import camel_to_snake, exists
 from .wav_dataset import WAVDataset
 
 
