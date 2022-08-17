@@ -100,7 +100,7 @@ from audio_data_pytorch import Crop
 crop = Crop(size=22050*2, start=0) # Crop 2 seconds at 22050 Hz from the start of the file
 
 from audio_data_pytorch import RandomCrop
-crop = RandomCrop(size=22050*2) # Crop 2 seconds at 22050 Hz from a random position
+random_crop = RandomCrop(size=22050*2) # Crop 2 seconds at 22050 Hz from a random position
 
 from audio_data_pytorch import Resample
 resample = Resample(source=48000, target=22050), # Resamples from 48kHz to 22kHz
@@ -112,7 +112,7 @@ from audio_data_pytorch import Scale
 scale = Scale(scale=0.8) # Scale waveform amplitude by 0.8
 
 from audio_data_pytorch import Loudness
-scale = Loudness(sampling_rate=22050, target=-20) # Normalize loudness to -20dB, requires `pip install pyloudnorm`
+loudness = Loudness(sampling_rate=22050, target=-20) # Normalize loudness to -20dB, requires `pip install pyloudnorm`
 ```
 
 Or use this wrapper to apply a subset of them in one go, API:
