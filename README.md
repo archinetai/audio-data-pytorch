@@ -34,7 +34,7 @@ WAVDataset(
 ```
 
 ### LJSpeech Dataset
-An unsupervised dataset for LJSpeech with voice only data.
+An unsupervised dataset for LJSpeech with voice-only data.
 ```py
 from audio_data_pytorch import LJSpeechDataset
 
@@ -44,19 +44,30 @@ dataset[0] # (1, 158621)
 dataset[1] # (1, 153757)
 ```
 
+### Common Voice Dataset
+Multilanguage wrapper for the [Common Voice](https://commonvoice.mozilla.org/) dataset with voice-only data. Requires `pip install datasets`. Note that each language requires several GBs of storage.
+```py
+from audio_data_pytorch import CommonVoiceDataset
+
+dataset = CommonVoiceDataset(root='./data')
+```
+
 #### Full API:
 ```py
-LJSpeechDataset(
+CommonVoiceDataset(
     root: str = "./data", # The root where the dataset will be downloaded
-    with_sample_rate: bool = False, # Returns sample rate as second argument
+    languages: Sequence[str] = ['en'], # List of languages to include in the dataset
+    with_sample_rate: bool = False,  # Returns sample rate as second argument
     transforms: Optional[Callable] = None, # Transforms to apply to audio files
 )
 ```
 
 ### Youtube Dataset
-A wrapper around yt-dlp that automatically downloads the audio source of Youtube videos.
+A wrapper around yt-dlp that automatically downloads the audio source of Youtube videos. Requires `pip install yt-dlp`.
 
 ```py
+from audio_data_pytorch import YoutubeDataset
+
 dataset = YoutubeDataset(
     root='./data',
     urls=[
@@ -82,18 +93,39 @@ dataset = YoutubeDataset(
 
 ## Transforms
 
-An example
+You can use the following individual transforms, or merge them with `nn.Sequential()`:
 
 ```py
-from audio_data_pytorch import Resample, OverlapChannels, Crop, RandomCrop, Scale
+from audio_data_pytorch import Crop
+crop = Crop(size=22050*2, start=0) # Crop 2 seconds at 22050 Hz from the start of the file
 
-crop = Crop(22050) # Crop start of audio track
+from audio_data_pytorch import RandomCrop
+crop = RandomCrop(size=22050*2) # Crop 2 seconds at 22050 Hz from a random position
 
-transforms = nn.Sequential(
-    Resample(source=48000, target=22050), # Resample from 48kHz to 22kHz
-    OverlapChannels(), # Overap channels by sum (C, N) -> (1, N)
-    RandomCrop(22050 * 3), # Random crop from file
-    Scale(0.8) # Scale waveform
+from audio_data_pytorch import Resample
+resample = Resample(source=48000, target=22050), # Resamples from 48kHz to 22kHz
+
+from audio_data_pytorch import OverlapChannels
+overlap = OverlapChannels() # Overap channels by sum (C, N) -> (1, N)
+
+from audio_data_pytorch import Scale
+scale = Scale(scale=0.8) # Scale waveform amplitude by 0.8
+
+from audio_data_pytorch import Loudness
+scale = Loudness(sampling_rate=22050, target=-20) # Normalize loudness to -20dB, requires `pip install pyloudnorm`
+```
+
+Or use this wrapper to apply a subset of them in one go, API:
+```py
+from audio_data_pytorch import AllTransform
+
+transform = AllTransform(
+    source_rate: Optional[int] = None,
+    target_rate: Optional[int] = None,
+    crop_size: Optional[int] = None,
+    random_crop_size: Optional[int] = None,
+    loudness: Optional[int] = None,
+    scale: Optional[float] = None,
+    overlap_channels: bool = False,
 )
-
 ```

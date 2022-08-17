@@ -1,6 +1,6 @@
 import glob
 import os
-from typing import Callable, List, Optional, Sequence, Union
+from typing import Callable, List, Optional, Sequence, Tuple, Union
 
 import torchaudio
 from torch import Tensor
@@ -28,7 +28,7 @@ class WAVDataset(Dataset):
         self.transforms = transforms
         self.with_sample_rate = with_sample_rate
 
-    def __getitem__(self, idx: int) -> Tensor:
+    def __getitem__(self, idx: int) -> Union[Tensor, Tuple[Tensor, Tensor]]:
         waveform, sample_rate = torchaudio.load(self.wavs[idx])
         if self.transforms:
             waveform = self.transforms(waveform)
