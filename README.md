@@ -45,16 +45,25 @@ dataset[1] # (1, 153757)
 ```
 
 ### Common Voice Dataset
-Multilanguage wrapper for the [Common Voice](https://commonvoice.mozilla.org/) dataset with voice-only data. Requires `pip install datasets`. Note that each language requires several GBs of storage.
+Multilanguage wrapper for the [Common Voice](https://commonvoice.mozilla.org/) dataset with voice-only data. Requires `pip install datasets`. Note that each language requires several GBs of storage, and that you have to confirm access for each distinct version you use e.g. [here](https://huggingface.co/datasets/mozilla-foundation/common_voice_10_0]), to validate your Huggingface access token. You can provide a list of `languages`, to avoid an unbalanced dataset the values will be interleaved by downsampling the majority language to have the same number of samples as the minority language.
+
 ```py
 from audio_data_pytorch import CommonVoiceDataset
 
-dataset = CommonVoiceDataset(root='./data')
+dataset = CommonVoiceDataset(
+    auth_token="hf_xxx",
+    version=1,
+    root="../data",
+    languages=['it']
+)
 ```
 
 #### Full API:
 ```py
 CommonVoiceDataset(
+    auth_token: str, # Your Huggingface access token
+    version: int, # Common Voice dataset version
+    sub_version: int = 0, # Subversion: common_voice_{version}_{sub_version}
     root: str = "./data", # The root where the dataset will be downloaded
     languages: Sequence[str] = ['en'], # List of languages to include in the dataset
     with_sample_rate: bool = False,  # Returns sample rate as second argument
