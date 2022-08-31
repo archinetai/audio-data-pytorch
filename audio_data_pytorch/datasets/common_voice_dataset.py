@@ -2,7 +2,6 @@ import os
 from typing import Callable, Optional, Sequence, Tuple, Union
 
 import torch
-from datasets import interleave_datasets, load_dataset
 from torch import Tensor
 from torch.utils.data import Dataset
 
@@ -20,6 +19,8 @@ class CommonVoiceDataset(Dataset):
     ):
         self.with_sample_rate = with_sample_rate
         self.transforms = transforms
+
+        from datasets import interleave_datasets, load_dataset
 
         self.dataset = interleave_datasets(
             [
