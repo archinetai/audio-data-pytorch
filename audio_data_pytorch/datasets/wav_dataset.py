@@ -9,10 +9,12 @@ from torch.utils.data import Dataset
 
 
 def get_all_wav_filenames(paths: Sequence[str], recursive: bool) -> List[str]:
-    ext = "**/*.wav" if recursive else "*.wav"
+    extensions = ["wav", "flac"]
     filenames = []
-    for path in paths:
-        filenames.extend(glob.glob(os.path.join(path, ext), recursive=recursive))
+    for ext_name in extensions:
+        ext = f"**/*.{ext_name}" if recursive else f"*.{ext_name}"
+        for path in paths:
+            filenames.extend(glob.glob(os.path.join(path, ext), recursive=recursive))
     return filenames
 
 
@@ -21,13 +23,13 @@ class WAVDataset(Dataset):
         self,
         path: Union[str, Sequence[str]],
         recursive: bool = False,
-        with_sample_rate: bool = False,
         transforms: Optional[Callable] = None,
+        sample_rate: Optional[int] = None,
     ):
         self.paths = path if isinstance(path, (list, tuple)) else [path]
         self.wavs = get_all_wav_filenames(self.paths, recursive=recursive)
         self.transforms = transforms
-        self.with_sample_rate = with_sample_rate
+        self.sample_rate = sample_rate
 
     def __getitem__(
         self, idx: Union[Tensor, int]
@@ -36,7 +38,13 @@ class WAVDataset(Dataset):
         waveform, sample_rate = torchaudio.load(self.wavs[idx])
         if self.transforms:
             waveform = self.transforms(waveform)
-        return (waveform, sample_rate) if self.with_sample_rate else waveform
+
+        if self.sample_rate and sample_rate != self.sample_rate:
+            waveform = torchaudio.transforms.Resample(
+                orig_freq=sample_rate, new_freq=self.sample_rate
+            )(waveform)
+
+        return waveform
 
     def __len__(self) -> int:
         return len(self.wavs)
