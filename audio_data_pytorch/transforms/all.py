@@ -4,6 +4,7 @@ from torch import Tensor, nn
 
 from ..utils import exists
 from .crop import Crop
+from .duplicate_channels import DuplicateChannels
 from .loudness import Loudness
 from .overlap_channels import OverlapChannels
 from .randomcrop import RandomCrop
@@ -20,6 +21,7 @@ class AllTransform(nn.Module):
         random_crop_size: Optional[int] = None,
         loudness: Optional[int] = None,
         scale: Optional[float] = None,
+        duplicate_channels: bool = False,
         overlap_channels: bool = False,
     ):
         super().__init__()
@@ -37,6 +39,7 @@ class AllTransform(nn.Module):
             RandomCrop(random_crop_size) if exists(random_crop_size) else nn.Identity(),
             Crop(crop_size) if exists(crop_size) else nn.Identity(),
             OverlapChannels() if overlap_channels else nn.Identity(),
+            DuplicateChannels() if duplicate_channels else nn.Identity(),
             Loudness(sampling_rate=target_rate, target=loudness)  # type: ignore
             if exists(loudness)
             else nn.Identity(),

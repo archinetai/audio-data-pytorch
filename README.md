@@ -117,6 +117,9 @@ resample = Resample(source=48000, target=22050), # Resamples from 48kHz to 22kHz
 from audio_data_pytorch import OverlapChannels
 overlap = OverlapChannels() # Overap channels by sum (C, N) -> (1, N)
 
+from audio_data_pytorch import DuplicateChannels
+duplicate = DuplicateChannels() # Duplicate channels (1, N) -> (2, N) or (2, N) -> (2, N)
+
 from audio_data_pytorch import Scale
 scale = Scale(scale=0.8) # Scale waveform amplitude by 0.8
 
@@ -136,5 +139,6 @@ transform = AllTransform(
     loudness: Optional[int] = None,
     scale: Optional[float] = None,
     overlap_channels: bool = False,
+    duplicate_channels: bool = False,
 )
 ```
