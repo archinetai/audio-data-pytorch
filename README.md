@@ -139,6 +139,6 @@ transform = AllTransform(
     loudness: Optional[int] = None,
     scale: Optional[float] = None,
     overlap_channels: bool = False,
-    duplicate_channels: bool = False,
+    use_stereo: bool = False,
 )
 ```
