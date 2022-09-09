@@ -5,7 +5,7 @@ from torch import Tensor, nn
 from ..utils import exists
 from .crop import Crop
 from .loudness import Loudness
-from .overlap_channels import OverlapChannels
+from .mono import Mono
 from .randomcrop import RandomCrop
 from .resample import Resample
 from .scale import Scale
@@ -21,8 +21,8 @@ class AllTransform(nn.Module):
         random_crop_size: Optional[int] = None,
         loudness: Optional[int] = None,
         scale: Optional[float] = None,
-        use_stereo: bool = False,
-        overlap_channels: bool = False,
+        stereo: bool = False,
+        mono: bool = False,
     ):
         super().__init__()
 
@@ -38,8 +38,8 @@ class AllTransform(nn.Module):
             else nn.Identity(),
             RandomCrop(random_crop_size) if exists(random_crop_size) else nn.Identity(),
             Crop(crop_size) if exists(crop_size) else nn.Identity(),
-            OverlapChannels() if overlap_channels else nn.Identity(),
-            Stereo() if use_stereo else nn.Identity(),
+            Mono() if mono else nn.Identity(),
+            Stereo() if stereo else nn.Identity(),
             Loudness(sampling_rate=target_rate, target=loudness)  # type: ignore
             if exists(loudness)
             else nn.Identity(),

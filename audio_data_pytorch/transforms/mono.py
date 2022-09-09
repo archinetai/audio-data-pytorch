@@ -2,7 +2,7 @@ import torch
 from torch import Tensor, nn
 
 
-class OverlapChannels(nn.Module):
+class Mono(nn.Module):
     """Overlaps all channels into one"""
 
     def forward(self, x: Tensor) -> Tensor:

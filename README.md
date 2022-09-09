@@ -114,8 +114,8 @@ random_crop = RandomCrop(size=22050*2) # Crop 2 seconds at 22050 Hz from a rando
 from audio_data_pytorch import Resample
 resample = Resample(source=48000, target=22050), # Resamples from 48kHz to 22kHz
 
-from audio_data_pytorch import OverlapChannels
-overlap = OverlapChannels() # Overap channels by sum (C, N) -> (1, N)
+from audio_data_pytorch import Mono
+overlap = Mono() # Overap channels by sum to get mono soruce (C, N) -> (1, N)
 
 from audio_data_pytorch import Stereo
 stereo = Stereo() # Duplicate channels (1, N) -> (2, N) or (2, N) -> (2, N)
@@ -138,7 +138,7 @@ transform = AllTransform(
     random_crop_size: Optional[int] = None,
     loudness: Optional[int] = None,
     scale: Optional[float] = None,
-    overlap_channels: bool = False,
-    use_stereo: bool = False,
+    mono: bool = False,
+    stereo: bool = False,
 )
 ```

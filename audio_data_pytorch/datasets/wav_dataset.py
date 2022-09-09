@@ -36,13 +36,14 @@ class WAVDataset(Dataset):
     ) -> Union[Tensor, Tuple[Tensor, Tensor]]:
         idx = idx.tolist() if torch.is_tensor(idx) else idx  # type: ignore
         waveform, sample_rate = torchaudio.load(self.wavs[idx])
-        if self.transforms:
-            waveform = self.transforms(waveform)
 
         if self.sample_rate and sample_rate != self.sample_rate:
             waveform = torchaudio.transforms.Resample(
                 orig_freq=sample_rate, new_freq=self.sample_rate
             )(waveform)
+
+        if self.transforms:
+            waveform = self.transforms(waveform)
 
         return waveform
 
