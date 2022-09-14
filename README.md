@@ -44,8 +44,38 @@ dataset[0] # (1, 158621)
 dataset[1] # (1, 153757)
 ```
 
+#### Full API:
+```py
+LJSpeechDataset(
+    root: str = "./data", # The root where the dataset will be downloaded
+    transforms: Optional[Callable] = None, # Transforms to apply to audio files
+)
+```
+
+### LibriSpeech Dataset
+Wrapper for the [LibriSpeech](https://www.openslr.org/12) dataset (EN only). Requires `pip install datasets`. Note that this dataset requires several GBs of storage.
+
+```py
+from audio_data_pytorch import LibriSpeechDataset
+
+dataset = LibriSpeechDataset(
+    root="./data",
+)
+
+dataset[0] # (1, 222336)
+```
+
+#### Full API:
+```py
+LibriSpeechDataset(
+    root: str = "./data", # The root where the dataset will be downloaded
+    with_info: bool = False, # Whether to return info (i.e. text, sampling rate, speaker_id)
+    transforms: Optional[Callable] = None, # Transforms to apply to audio files
+)
+```
+
 ### Common Voice Dataset
-Multilanguage wrapper for the [Common Voice](https://commonvoice.mozilla.org/) dataset with voice-only data. Requires `pip install datasets`. Note that each language requires several GBs of storage, and that you have to confirm access for each distinct version you use e.g. [here](https://huggingface.co/datasets/mozilla-foundation/common_voice_10_0), to validate your Huggingface access token. You can provide a list of `languages` and to avoid an unbalanced dataset the values will be interleaved by downsampling the majority language to have the same number of samples as the minority language.
+Multilanguage wrapper for the [Common Voice](https://commonvoice.mozilla.org/). Requires `pip install datasets`. Note that each language requires several GBs of storage, and that you have to confirm access for each distinct version you use e.g. [here](https://huggingface.co/datasets/mozilla-foundation/common_voice_10_0), to validate your Huggingface access token. You can provide a list of `languages` and to avoid an unbalanced dataset the values will be interleaved by downsampling the majority language to have the same number of samples as the minority language.
 
 ```py
 from audio_data_pytorch import CommonVoiceDataset
@@ -66,7 +96,7 @@ CommonVoiceDataset(
     sub_version: int = 0, # Subversion: common_voice_{version}_{sub_version}
     root: str = "./data", # The root where the dataset will be downloaded
     languages: Sequence[str] = ['en'], # List of languages to include in the dataset
-    with_sample_rate: bool = False,  # Returns sample rate as second argument
+    with_info: bool = False,  #  Whether to return info (i.e. text, sampling rate, age, gender, accent, locale)
     transforms: Optional[Callable] = None, # Transforms to apply to audio files
 )
 ```
