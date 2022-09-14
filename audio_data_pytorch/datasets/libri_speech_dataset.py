@@ -30,7 +30,7 @@ class LibriSpeechDataset(Dataset):
     ) -> Union[Tensor, Tuple[Tensor, Dict]]:
         idx = idx.tolist() if torch.is_tensor(idx) else idx  # type: ignore
         data = self.dataset[idx]
-        waveform = torch.tensor(data["audio"]["array"]).view(1, -1)
+        waveform = torch.tensor(data["audio"]["array"]).view(1, -1).float()
         info = dict(
             sample_rate=data["audio"]["sampling_rate"],
             text=data["text"],
