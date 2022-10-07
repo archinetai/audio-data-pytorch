@@ -17,6 +17,7 @@ setup(
         "data-science-types>=0.2",
         "requests",
         "tqdm",
+        "aiohttp",
     ],
     classifiers=[
         "Development Status :: 4 - Beta",
