@@ -5,8 +5,9 @@ import os
 import re
 import shutil
 import tarfile
+import threading
 import zipfile
-from typing import List, Optional, Sequence, TypeVar
+from typing import List, Optional, Sequence, Tuple, TypeVar
 
 import aiohttp
 import torch
@@ -43,6 +44,31 @@ def fractional_random_split(
         cursor = next_cursor
 
     return splits
+
+
+class RunThread(threading.Thread):
+    def __init__(self, func):
+        self.func = func
+        self.result = None
+        super().__init__()
+
+    def run(self):
+        self.result = asyncio.run(self.func)
+
+
+def run_async(func):
+    """Allows to run asyncio in an already running loop, e.g. Jupyter notebooks"""
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+    if loop and loop.is_running():
+        thread = RunThread(func)
+        thread.start()
+        thread.join()
+        return thread.result
+    else:
+        return asyncio.run(func)
 
 
 class Downloader:
@@ -89,9 +115,11 @@ class Downloader:
             return file_path
 
     async def download_all_async(self) -> List[str]:
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(
+            timeout=aiohttp.ClientTimeout(total=None)  # Unlimited timeout time
+        ) as session:
             tasks = []
-            for url in urls:
+            for url in self.urls:
                 file_path = self.get_file_path(url)
                 # Check if file already exists
                 if self.check_exists and os.path.exists(file_path):
@@ -102,7 +130,7 @@ class Downloader:
         return self.files
 
     def download_all(self) -> List[str]:
-        return asyncio.run(self.download_all_async())
+        return run_async(self.download_all_async())
 
     def remove_files(self):
         for file in self.files:
@@ -123,47 +151,75 @@ class Downloader:
             self.remove_files()
 
 
+def is_tar(file_name: str) -> bool:
+    return file_name.lower().endswith((".tar", ".gz", ".bz2", ".xz"))
+
+
+def is_zip(file_name: str) -> bool:
+    return file_name.lower().endswith(".zip")
+
+
 class Decompressor:
     def __init__(
         self,
         files: List[str],
-        ext: str = "tar",
         path: str = ".",
         remove_on_exit: bool = False,
+        check_exists: bool = True,
         description: str = "Decompressing",
     ):
         self.files = files
-        self.ext = ext
         self.path = path
         self.paths: List[str] = []
         self.remove_on_exit = remove_on_exit
+        self.check_exists = check_exists
         self.description = description
+
+    def get_path_and_folder(self, file_name: str) -> Tuple[str, str]:
+        path = os.path.splitext(file_name)[0]  # Remove extension
+        folder = os.path.split(path)[1]
+        return path, folder
 
     def extract_all(self, archive, path: str):
         for member in tqdm(archive.infolist(), desc=f"{self.description}: {path}"):
             archive.extract(member, path)
 
     def decompress(self, file_name: str):
-        extract_path = os.path.splitext(file_name)[0]
-        if self.ext == "zip":
+        path, _ = self.get_path_and_folder(file_name)
+        if is_zip(file_name):
             with zipfile.ZipFile(file_name, "r") as archive:
-                self.extract_all(archive, extract_path)
-        else:
+                self.extract_all(archive, path)
+        elif is_tar(file_name):
             with tarfile.open(file_name) as archive:
-                self.extract_all(archive, extract_path)
-        return extract_path
+                self.extract_all(archive, path)
+        else:
+            raise ValueError(f"Unsupported file extension: {file_name}")
+        return path
 
     async def decompress_all_async(self):
+        files_to_decompress = []
+        # Remove already existing paths from files to decompress if requested
+        if self.check_exists:
+            for file_name in self.files:
+                path, _ = self.get_path_and_folder(file_name)
+                if os.path.exists(path):
+                    self.paths += [path]
+                else:
+                    files_to_decompress += [file_name]
+        else:
+            files_to_decompress = self.files
+        # Decompress with multiprocessing
         loop = asyncio.get_running_loop()
         with concurrent.futures.ProcessPoolExecutor() as pool:
-            results = [
-                loop.run_in_executor(pool, self.decompress, file) for file in self.files
+            tasks = [
+                loop.run_in_executor(pool, self.decompress, file_name)
+                for file_name in files_to_decompress
             ]
-            self.paths += await asyncio.gather(*results)
+            self.paths += await asyncio.gather(*tasks)
         return self.paths
 
     def decompress_all(self):
-        return asyncio.run(self.decompress_all_async())
+        return run_async(self.decompress_all_async())
 
     def remove_paths(self):
         for path in self.paths:
@@ -195,12 +251,12 @@ if __name__ == "__main__":
     # Async example
     async def run(urls):
         async with Downloader(urls, remove_on_exit=True) as files:
-            async with Decompressor(files, ext="zip", remove_on_exit=True) as paths:
+            async with Decompressor(files, remove_on_exit=True) as paths:
                 print(paths)
 
     asyncio.run(run(urls))
 
     # Sync example
     with Downloader(urls, remove_on_exit=True) as files:
-        with Decompressor(files, ext="zip", remove_on_exit=True) as paths:
+        with Decompressor(files, remove_on_exit=True) as paths:
             print(paths)
