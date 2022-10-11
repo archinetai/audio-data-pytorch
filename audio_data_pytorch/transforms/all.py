@@ -26,15 +26,16 @@ class AllTransform(nn.Module):
     ):
         super().__init__()
 
-        message = "Both source_rate and target_rate must be provided"
-        assert not exists(source_rate) ^ exists(target_rate), message
-
         message = "Loudness requires target_rate"
         assert not exists(loudness) or exists(target_rate), message
 
         self.transform = nn.Sequential(
             Resample(source=source_rate, target=target_rate)  # type: ignore
-            if exists(source_rate) and source_rate != target_rate
+            if (
+                exists(source_rate)
+                and exists(target_rate)
+                and source_rate != target_rate
+            )
             else nn.Identity(),
             RandomCrop(random_crop_size) if exists(random_crop_size) else nn.Identity(),
             Crop(crop_size) if exists(crop_size) else nn.Identity(),
