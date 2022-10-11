@@ -170,6 +170,8 @@ dataset = ClothoDataset(
 )
 ```
 
+
+#### Full API:
 ```py
 dataset = ClothoDataset(
     root: str, # Path where the dataset is saved
