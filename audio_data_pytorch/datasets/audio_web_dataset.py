@@ -157,6 +157,10 @@ def identity(x):
     return x
 
 
+def first(x):
+    return x[0]
+
+
 class AudioWebDataset(WebDataset):
 
     # Why batch_size in a dataset constructor?
@@ -176,7 +180,7 @@ class AudioWebDataset(WebDataset):
             self.shuffle(shuffle)
             .decode(torch_audio)
             .to_tuple("wav", "json")
-            .map_tuple((lambda tuple: tuple[0]), identity)
+            .map_tuple(first, identity)
         )
 
         if exists(transforms):
