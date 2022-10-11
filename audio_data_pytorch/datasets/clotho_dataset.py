@@ -45,7 +45,7 @@ class ClothoDataset(AudioWebDataset):
 
     @property
     def tar_file_name(self) -> str:
-        return os.path.join(self.data_path, f"clotho_{self.split}.tar.gz")
+        return os.path.join(self.data_path, f"clotho_{self.split}.tar")
 
     async def preprocess(self):
         urls, path = self.urls, self.data_path
@@ -58,7 +58,7 @@ class ClothoDataset(AudioWebDataset):
                 captions = pd.read_csv(caption_csv_file)
                 length = len(captions.index)
 
-                with tarfile.open(self.tar_file_name, "w:gz") as archive:
+                with tarfile.open(self.tar_file_name, "w") as archive:
                     for i, caption in tqdm(captions.iterrows(), total=length):
                         wav_file_name = caption.file_name
                         wav_path = os.path.join(folders[0], self.split, wav_file_name)

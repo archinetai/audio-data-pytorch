@@ -102,12 +102,12 @@ class AudioWebDatasetPreprocess:
 
     async def preprocess(self):
         urls, path = self.urls, self.root
-        tarfile_name = os.path.join(path, f"{self.name}.tar.gz")
+        tarfile_name = os.path.join(path, f"{self.name}.tar")
         waveform_id = 0
 
         async with Downloader(urls, path=path) as files:
             async with Decompressor(files, path=path) as folders:
-                with tarfile.open(tarfile_name, "w:gz") as archive:
+                with tarfile.open(tarfile_name, "w") as archive:
                     for folder in tqdm(folders):
                         for wav in tqdm(glob.glob(folder + "/**/*.wav")):
                             waveform, rate = torchaudio.load(wav)
