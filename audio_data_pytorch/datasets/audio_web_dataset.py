@@ -3,7 +3,7 @@ import json
 import os
 import re
 import tarfile
-from typing import Callable, List, Optional, Sequence, Union
+from typing import Callable, Dict, List, Optional, Sequence, Union
 
 import torchaudio
 from torch import nn
@@ -16,6 +16,58 @@ from ..utils import Decompressor, Downloader, exists, run_async
 """
 Preprocessing
 """
+
+
+class AudioProcess:
+    def __init__(
+        self,
+        path: str,
+        info: Dict,
+        sample_rate: Optional[int] = None,
+        transforms: Optional[Callable] = None,
+    ):
+        self.path = path
+        self.sample_rate = sample_rate
+        self.transforms = transforms
+        self.info = info
+        self.path_prefix = f"{os.path.splitext(self.path)[0]}_processed"
+        self.wav_dest_path = None
+        self.json_dest_path = None
+
+    def process_wav(self):
+        waveform, rate = torchaudio.load(self.path)
+
+        if exists(self.sample_rate):
+            resample = Resample(source=rate, target=self.sample_rate)
+            waveform = resample(waveform)
+            rate = self.sample_rate
+
+        if exists(self.transforms):
+            waveform = self.transforms(waveform)
+
+        wav_dest_path = f"{self.path_prefix}.wav"
+        print(wav_dest_path)
+        torchaudio.save(wav_dest_path, waveform, rate)
+
+        self.wav_dest_path = wav_dest_path
+        return wav_dest_path
+
+    def process_info(self):
+        json_dest_path = f"{self.path_prefix}.json"
+        with open(json_dest_path, "w") as f:
+            json.dump(self.info, f)
+
+        self.json_dest_path = json_dest_path
+        return json_dest_path
+
+    def __enter__(self):
+        wav_processed_path = self.process_wav()
+        json_processed_path = self.process_info()
+        return wav_processed_path, json_processed_path
+
+    def __exit__(self, *args):
+        os.remove(self.wav_dest_path)
+        os.remove(self.json_dest_path)
 
 
 class AudioWebDatasetPreprocess:
@@ -50,12 +102,12 @@ class AudioWebDatasetPreprocess:
 
     async def preprocess(self):
         urls, path = self.urls, self.root
-        tarfile_name = os.path.join(path, f"{self.name}.tar")
+        tarfile_name = os.path.join(path, f"{self.name}.tar.gz")
         waveform_id = 0
 
         async with Downloader(urls, path=path) as files:
             async with Decompressor(files, path=path) as folders:
-                with tarfile.open(tarfile_name, "w") as archive:
+                with tarfile.open(tarfile_name, "w:gz") as archive:
                     for folder in tqdm(folders):
                         for wav in tqdm(glob.glob(folder + "/**/*.wav")):
                             waveform, rate = torchaudio.load(wav)
@@ -112,16 +164,13 @@ class AudioWebDataset(WebDataset):
 
     def __init__(
         self,
-        path: Union[str, Sequence[str]],
+        urls: Union[str, Sequence[str]],
         transforms: Optional[Callable] = None,
         batch_size: Optional[int] = None,
-        recursive: bool = True,
         shuffle: int = 128,
         **kwargs,
     ):
-        paths = path if isinstance(path, (list, tuple)) else [path]
-        tars = get_all_tar_filenames(paths, recursive=recursive)
-        super().__init__(urls=tars, **kwargs)
+        super().__init__(urls=urls, **kwargs)
 
         (
             self.shuffle(shuffle)

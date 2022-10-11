@@ -33,6 +33,33 @@ WAVDataset(
 )
 ```
 
+
+### AudioWebDataset
+A [`WebDataset`](https://webdataset.github.io/webdataset/) extension for audio data. Assumes that the `.tar` file comes with pairs of `.wav` (or `.flac`) and `.json` data.
+```py
+from audio_data_pytorch import AudioWebDataset
+
+dataset = AudioWebDataset(
+    urls='mywebdataset.tar'
+)
+
+waveform, info = next(iter(dataset))
+
+print(waveform.shape) # torch.Size([2, 480000])
+print(info.keys()) # dict_keys(['text'])
+```
+
+#### Full API:
+```py
+dataset = AudioWebDataset(
+    urls: Union[str, Sequence[str]],
+    transforms: Optional[Callable] = None, # Transforms to apply to audio files
+    batch_size: Optional[int] = None, # Why is batch_size here? See https://webdataset.github.io/webdataset/gettingstarted/#webdataset-and-dataloader
+    shuffle: int = 128, # Shuffle in groups of 128
+    **kwargs, # Forwarded to WebDataset class
+)
+```
+
 ### LJSpeech Dataset
 An unsupervised dataset for LJSpeech with voice-only data.
 ```py
@@ -126,6 +153,31 @@ dataset = YoutubeDataset(
     crop_length: Optional[int] = None, # Crops the source into chunks of `crop_length` seconds
     with_sample_rate: bool = False, # Returns sample rate as second argument
     transforms: Optional[Callable] = None, # Transforms to apply to audio files
+)
+```
+
+### Clotho Dataset
+A wrapper for the [Clotho](https://zenodo.org/record/3490684#.Y0VVVOxBwR0) dataset extending `AudioWebDataset`. Requires `pip install py7zr` to decompress `.7z` archive.
+
+```py
+from audio_data_pytorch import ClothoDataset, Crop, Stereo, Mono
+
+dataset = ClothoDataset(
+    root='./data/',
+    preprocess_sample_rate=48000, # Added to all files during preprocessing
+    preprocess_transforms=nn.Sequential(Crop(48000*10), Stereo()), # Added to all files during preprocessing
+    transforms=Mono() # Added dynamically at iteration time
+)
+```
+
+```py
+dataset = ClothoDataset(
+    root: str, # Path where the dataset is saved
+    split: str = 'train', # Dataset split, one of: 'train', 'valid'
+    preprocess_sample_rate: Optional[int] = None, # Preprocesses dataset to this sample rate
+    preprocess_transforms: Optional[Callable] = None, # Preprocesses dataset with the provided transfomrs
+    reset: bool = False, # Re-compute preprocessing if `true`
+    **kwargs # Forwarded to `AudioWebDataset`
 )
 ```
 

@@ -159,6 +159,10 @@ def is_zip(file_name: str) -> bool:
     return file_name.lower().endswith(".zip")
 
 
+def is_7zip(file_name: str) -> bool:
+    return file_name.lower().endswith(".7z")
+
+
 class Decompressor:
     def __init__(
         self,
@@ -192,6 +196,12 @@ class Decompressor:
         elif is_tar(file_name):
             with tarfile.open(file_name) as archive:
                 self.extract_all(archive, path)
+        elif is_7zip(file_name):
+            import py7zr
+
+            print(f"{self.description}: {path}")
+            with py7zr.SevenZipFile(file_name, mode="r") as archive:
+                archive.extractall(path=path)
         else:
             raise ValueError(f"Unsupported file extension: {file_name}")
         return path

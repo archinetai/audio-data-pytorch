@@ -3,7 +3,7 @@ from setuptools import find_packages, setup
 setup(
     name="audio-data-pytorch",
     packages=find_packages(exclude=[]),
-    version="0.0.12",
+    version="0.0.13",
     license="MIT",
     description="Audio Data - PyTorch",
     long_description_content_type="text/markdown",
@@ -18,6 +18,7 @@ setup(
         "requests",
         "tqdm",
         "aiohttp",
+        "webdataset",
     ],
     classifiers=[
         "Development Status :: 4 - Beta",
