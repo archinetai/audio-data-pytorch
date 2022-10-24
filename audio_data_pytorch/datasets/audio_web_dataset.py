@@ -46,7 +46,6 @@ class AudioProcess:
             waveform = self.transforms(waveform)
 
         wav_dest_path = f"{self.path_prefix}.wav"
-        print(wav_dest_path)
         torchaudio.save(wav_dest_path, waveform, rate)
 
         self.wav_dest_path = wav_dest_path
@@ -106,7 +105,7 @@ class AudioWebDatasetPreprocess:
         waveform_id = 0
 
         async with Downloader(urls, path=path) as files:
-            async with Decompressor(files, path=path) as folders:
+            async with Decompressor(files, path=path, remove_on_exit=True) as folders:
                 with tarfile.open(tarfile_name, "w") as archive:
                     for folder in tqdm(folders):
                         for wav in tqdm(glob.glob(folder + "/**/*.wav")):

@@ -11,6 +11,7 @@ from typing import List, Optional, Sequence, Tuple, TypeVar
 
 import aiohttp
 import torch
+from torch import Tensor
 from torch.utils.data.dataset import Dataset, Subset
 from tqdm import tqdm
 from typing_extensions import TypeGuard
@@ -44,6 +45,48 @@ def fractional_random_split(
         cursor = next_cursor
 
     return splits
+
+
+"""
+Audio utils
+"""
+
+
+def is_silence(audio: Tensor, thresh: int = -60):
+    dBmax = 20 * torch.log10(torch.flatten(audio.abs()).max())
+    return dBmax < thresh
+
+
+"""
+Data/async utils
+"""
+
+
+def fast_scandir(path: str, exts: List[str], recursive: bool = False):
+    # Scan files recursively faster than glob
+    # From github.com/drscotthawley/aeiou/blob/main/aeiou/core.py
+    subfolders, files = [], []
+
+    try:  # hope to avoid 'permission denied' by this try
+        for f in os.scandir(path):
+            try:  # 'hope to avoid too many levels of symbolic links' error
+                if f.is_dir():
+                    subfolders.append(f.path)
+                elif f.is_file():
+                    if os.path.splitext(f.name)[1].lower() in exts:
+                        files.append(f.path)
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    if recursive:
+        for path in list(subfolders):
+            sf, f = fast_scandir(path, exts, recursive=recursive)
+            subfolders.extend(sf)
+            files.extend(f)  # type: ignore
+
+    return subfolders, files
 
 
 class RunThread(threading.Thread):

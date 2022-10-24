@@ -54,7 +54,9 @@ class ClothoDataset(AudioWebDataset):
         async with Downloader(urls, path=path) as files:
             to_decompress = [f for f in files if f.endswith(".7z")]
             caption_csv_file = [f for f in files if f.endswith(".csv")][0]
-            async with Decompressor(to_decompress, path=path) as folders:
+            async with Decompressor(
+                to_decompress, path=path, remove_on_exit=True
+            ) as folders:
                 captions = pd.read_csv(caption_csv_file)
                 length = len(captions.index)
 
