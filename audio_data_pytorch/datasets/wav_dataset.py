@@ -5,6 +5,7 @@ from typing import Callable, List, Optional, Sequence, Tuple, Union
 
 import torch
 import torchaudio
+import random
 from torch import Tensor
 from torch.utils.data import Dataset
 from tinytag import TinyTag
@@ -33,6 +34,7 @@ class WAVDataset(Dataset):
         self.wavs = get_all_wav_filenames(self.paths, recursive=recursive)
         self.transforms = transforms
         self.sample_rate = sample_rate
+        self.metadata_mapping_path = metadata_mapping_path
 
         if metadata_mapping_path:
             # Create or load genre/artist -> id mapping file.
@@ -64,7 +66,13 @@ class WAVDataset(Dataset):
         self, idx: Union[Tensor, int]
     ) -> Union[Tensor, Tuple[Tensor, Tensor]]:
         idx = idx.tolist() if torch.is_tensor(idx) else idx  # type: ignore
-        waveform, sample_rate = torchaudio.load(self.wavs[idx])
+        waveform, sample_rate = (0, 0)
+        if(self.transforms.random_crop_size > 0):
+            length = torchaudio.info(self.wavs[idx]).num_frames
+            frame_offset = random.randint(0, max(length - self.transforms.random_crop_size, 0))
+            waveform, sample_rate = torchaudio.load(filepath=self.wavs[idx], frame_offset=frame_offset, num_frames=self.transforms.random_crop_size)
+        else:
+            waveform, sample_rate = torchaudio.load(self.wavs[idx])
 
         if self.sample_rate and sample_rate != self.sample_rate:
             waveform = torchaudio.transforms.Resample(
@@ -74,7 +82,7 @@ class WAVDataset(Dataset):
         if self.transforms:
             waveform = self.transforms(waveform)
 
-        if self.mappings:
+        if self.metadata_mapping_path:
             tag = TinyTag.get(self.wavs[idx])
             artists = (tag.artist or '').split(', ')
             genres = (tag.genre or '').split(', ')

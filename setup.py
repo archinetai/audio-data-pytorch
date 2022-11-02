@@ -19,6 +19,7 @@ setup(
         "tqdm",
         "aiohttp",
         "webdataset",
+        "tinytag",
     ],
     classifiers=[
         "Development Status :: 4 - Beta",
