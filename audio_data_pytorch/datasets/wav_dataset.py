@@ -1,11 +1,14 @@
 import glob
 import os
 import json
+from json.decoder import JSONDecodeError
 from typing import Callable, List, Optional, Sequence, Tuple, Union
+import math
 
 import torch
 import torchaudio
 import random
+import numpy as np
 from torch import Tensor
 from torch.utils.data import Dataset
 from tinytag import TinyTag
@@ -28,34 +31,46 @@ class WAVDataset(Dataset):
         recursive: bool = False,
         transforms: Optional[Callable] = None,
         sample_rate: Optional[int] = None,
+        source_rate: Optional[int] = None,
         metadata_mapping_path: Optional[str] = None,
     ):
         self.paths = path if isinstance(path, (list, tuple)) else [path]
         self.wavs = get_all_wav_filenames(self.paths, recursive=recursive)
         self.transforms = transforms
         self.sample_rate = sample_rate
+        self.source_rate = source_rate
         self.metadata_mapping_path = metadata_mapping_path
+        self.mappings = {}
 
         if metadata_mapping_path:
             # Create or load genre/artist -> id mapping file.
-            with open(metadata_mapping_path, 'w+') as openfile:
+            with open(metadata_mapping_path, 'r') as openfile:
                 # Reading from json file
-                self.mappings = json.load(openfile)
-                if not self.mappings:
+                try:
+                    self.mappings = json.load(openfile)
+                    print("Mappings loaded.")
+                    print("Artists:", len(self.mappings['artists']))
+                    print("Genres:", len(self.mappings['genres']))
+                except JSONDecodeError as e:
+                    print("No mappings found on disk:", e)
+            if self.mappings == {}:
+                with open(metadata_mapping_path, 'w') as openfile:
+                    print("Generating mappings")
                     # Generate data -> number mappings for dataset
-                    artist_id = 0
-                    genre_id = 0
+                    artist_id = 1
+                    genre_id = 1
                     for wav in self.wavs:
                         tag = TinyTag.get(wav)
                         artists = (tag.artist or '').split(', ')
                         genres = (tag.genre or '').split(', ')
                         for artist in artists:
-                            if not self.mappings['artists'][artist]:
-                                self.mappings['artists'][artist] = artist_id
+                            # cringe
+                            if not ('artists' in self.mappings and artist in self.mappings['artists']):
+                                self.mappings.setdefault('artists', {}).setdefault(artist, artist_id)
                                 artist_id += 1
                         for genre in genres:
-                            if not self.mappings['genres'][genre]:
-                                self.mappings['genres'][genre] = genre_id
+                            if not ('genres' in self.mappings and genre in self.mappings['genres']):
+                                self.mappings.setdefault('genres', {}).setdefault(genre, genre_id)
                                 genre_id += 1
                     json.dump(self.mappings, openfile)
                     
@@ -67,10 +82,17 @@ class WAVDataset(Dataset):
     ) -> Union[Tensor, Tuple[Tensor, Tensor]]:
         idx = idx.tolist() if torch.is_tensor(idx) else idx  # type: ignore
         waveform, sample_rate = (0, 0)
+
+        source_rate = self.source_rate
+        target_rate = self.transforms.target_rate
+
+        ratio = math.ceil(source_rate/target_rate)
+        crop_size = self.transforms.random_crop_size * ratio
+
         if(self.transforms.random_crop_size > 0):
             length = torchaudio.info(self.wavs[idx]).num_frames
-            frame_offset = random.randint(0, max(length - self.transforms.random_crop_size, 0))
-            waveform, sample_rate = torchaudio.load(filepath=self.wavs[idx], frame_offset=frame_offset, num_frames=self.transforms.random_crop_size)
+            frame_offset = random.randint(0, max(length - crop_size, 0))
+            waveform, sample_rate = torchaudio.load(filepath=self.wavs[idx], frame_offset=frame_offset, num_frames=crop_size)
         else:
             waveform, sample_rate = torchaudio.load(self.wavs[idx])
 
@@ -87,9 +109,11 @@ class WAVDataset(Dataset):
             artists = (tag.artist or '').split(', ')
             genres = (tag.genre or '').split(', ')
             # Map artist/genre strings to their ids in mappings. Ignore if not found.
-            artist_ids = filter(lambda item: item != -1, map(lambda artist: self.mappings['artists'][artist], artists))
-            genre_ids = filter(lambda item: item != -1,map(lambda genre: self.mappings['genres'][genre], genres))
-            return waveform, (artist_ids, genre_ids)
+            artist_ids = np.array(list(filter(lambda item: item != -1, map(lambda artist: self.mappings['artists'][artist], artists))))
+            genre_ids = np.array(list(filter(lambda item: item != -1,map(lambda genre: self.mappings['genres'][genre], genres))))
+            artist_ids.resize(4)
+            genre_ids.resize(4)
+            return waveform, Tensor([artist_ids, genre_ids]).int()
         return waveform
 
     def __len__(self) -> int:

@@ -26,6 +26,8 @@ class AllTransform(nn.Module):
     ):
         super().__init__()
         self.random_crop_size = random_crop_size
+        self.source_rate = source_rate
+        self.target_rate = target_rate
 
         message = "Loudness requires target_rate"
         assert not exists(loudness) or exists(target_rate), message
