@@ -30,6 +30,7 @@ WAVDataset(
     recursive: bool = False # Recursively load files from provided paths
     with_sample_rate: bool = False, # Returns sample rate as second argument
     transforms: Optional[Callable] = None, # Transforms to apply to audio files
+    check_silence: bool = True # Discards silent samples if true
 )
 ```
 
