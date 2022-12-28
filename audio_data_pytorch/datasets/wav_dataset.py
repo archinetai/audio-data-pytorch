@@ -1,11 +1,12 @@
-import random
 import math
+import random
 from typing import Callable, List, Optional, Sequence, Tuple, Union
+
 import torch
 import torchaudio
-import random
 from torch import Tensor
 from torch.utils.data import Dataset
+
 from ..utils import fast_scandir, is_silence
 
 
@@ -36,49 +37,63 @@ class WAVDataset(Dataset):
         self.check_silence = check_silence
         self.with_idx = with_idx
         self.optimized_random_crop_size = optimized_random_crop_size
-        assert (not optimized_random_crop_size or sample_rate), "Optimized random cropr requires sample_rate to be set."
+        assert (
+            not optimized_random_crop_size or sample_rate
+        ), "Optimized random crop requires sample_rate to be set."
 
-    # Instead of loading the whole file and chopping out our crop, we only load what we need.
-    def optimized_random_crop(self, idx):
+    # Instead of loading the whole file and chopping out our crop,
+    # we only load what we need.
+    def optimized_random_crop(self, idx: int) -> Tuple[Tensor, int]:
         # Get length/audio info
         info = torchaudio.info(self.wavs[idx])
         length = info.num_frames
         sample_rate = info.sample_rate
 
-        # Calculate correct number of samples to read based on actual and intended sample rate
-        ratio = math.ceil(sample_rate/self.sample_rate)
-        crop_size = self.optimized_random_crop_size * ratio
+        # Calculate correct number of samples to read based on actual
+        # and intended sample rate
+        ratio = math.ceil(sample_rate / self.sample_rate)
+        crop_size = self.optimized_random_crop_size * ratio  # type: ignore
         frame_offset = random.randint(0, max(length - crop_size, 0))
 
         # Load the samples
         waveform, sample_rate = torchaudio.load(
-            filepath=self.wavs[idx], frame_offset=frame_offset, num_frames=crop_size)
+            filepath=self.wavs[idx], frame_offset=frame_offset, num_frames=crop_size
+        )
 
-        # Pad with zeroes if the sizes aren't quite right (e.g., rates aren't exact multiples)
+        # Pad with zeroes if the sizes aren't quite right
+        # (e.g., rates aren't exact multiples)
         if len(waveform[0]) < crop_size:
-            waveform = torch.nn.functional.pad(waveform, pad=(
-                0, crop_size-len(waveform[0])), mode='constant', value=0)
+            waveform = torch.nn.functional.pad(
+                waveform,
+                pad=(0, crop_size - len(waveform[0])),
+                mode="constant",
+                value=0,
+            )
 
         return waveform, sample_rate
 
     def __getitem__(
-        self, idx: Union[Tensor, int]
-    ) -> Union[Tensor, Tuple[Tensor, Tensor]]:
-        idx = idx.tolist() if torch.is_tensor(idx) else idx  # type: ignore
+        self, idx: int
+    ) -> Union[
+        Tensor,
+        Tuple[Tensor, int],
+        Tuple[Tensor, Tensor],
+        Tuple[Tensor, List[str], List[str]],
+    ]:  # type: ignore
         invalid_audio = False
 
         # Loop until we find a valid audio sample
-        while (True):
+        while True:
             # If last sample was invalid, use a new random one.
             if invalid_audio:
                 idx = random.randrange(len(self))
 
-            if (self.optimized_random_crop_size > 0):
-                waveform, sample_rate = self.optimized_random_crop(idx)
+            if self.optimized_random_crop_size:
+                waveform, sample_rate = self.optimized_random_crop(int(idx))
             else:
                 # If no crop, just load everything
                 try:
-                    waveform, sample_rate = self.optimized_random_crop(idx)
+                    waveform, sample_rate = self.optimized_random_crop(int(idx))
                 except Exception:
                     invalid_audio = True
                     continue
@@ -98,9 +113,10 @@ class WAVDataset(Dataset):
                 invalid_audio = True
                 continue
 
+            # Return with idx if specified
             if self.with_idx:
                 return waveform, idx
-            # Otherwise, return sample without metadata
+
             return waveform
 
     def __len__(self) -> int:
