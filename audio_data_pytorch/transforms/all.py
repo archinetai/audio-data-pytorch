@@ -38,7 +38,7 @@ class AllTransform(nn.Module):
                 and source_rate != target_rate
             )
             else nn.Identity(),
-            #RandomCrop(random_crop_size) if exists(random_crop_size) else nn.Identity(),
+            RandomCrop(random_crop_size) if exists(random_crop_size) else nn.Identity(),
             Crop(crop_size) if exists(crop_size) else nn.Identity(),
             Mono() if mono else nn.Identity(),
             Stereo() if stereo else nn.Identity(),

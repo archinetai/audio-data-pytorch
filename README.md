@@ -28,7 +28,8 @@ dataset = WAVDataset(path=['my/path1', 'my/path2'])
 WAVDataset(
     path: Union[str, Sequence[str]], # Path or list of paths from which to load files
     recursive: bool = False # Recursively load files from provided paths
-    with_sample_rate: bool = False, # Returns sample rate as second argument
+    sample_rate: bool = False, # Specify sample rate to convert files to on read
+    optimized_random_crop_size: int = None, # Load small portions of files randomly
     transforms: Optional[Callable] = None, # Transforms to apply to audio files
     check_silence: bool = True # Discards silent samples if true
 )
@@ -181,6 +182,42 @@ dataset = ClothoDataset(
     preprocess_transforms: Optional[Callable] = None, # Preprocesses dataset with the provided transfomrs
     reset: bool = False, # Re-compute preprocessing if `true`
     **kwargs # Forwarded to `AudioWebDataset`
+)
+```
+
+### MetaDataset
+Extends `WAVDataset` with artist and genres read from ID3 tags and returned as string arrays or optionally mapped to integers stored in a json file at `metadata_mapping_path`.
+
+
+```py
+from audio_data_pytorch import MetaDataset
+
+dataset = MetaDataset(
+    path: Union[str, Sequence[str]], # Path or list of paths from which to load files
+    metadata_mapping_path: Optional[str] = None, # Path where mapping from artist/genres to numbers will be saved
+)
+
+waveform, artists, genres = next(iter(dataset))
+
+# Convert an artist ID back to a string
+artist_name = dataset.mappings['artists'].invert[insert_artist_id]
+
+# Convert a genre ID back to a string
+genre_name = dataset.mappings['genres'].invert[insert_genre_id]
+
+# If given a metadata_mapping_path, metadata is returned as an int Tensor
+waveform, artist_genre_tensor = next(iter(dataset))
+```
+
+
+#### Full API:
+```py
+dataset = MetaDataset(
+    path: Union[str, Sequence[str]], # Path or list of paths from which to load files
+    metadata_mapping_path: Optional[str] = None, # Path where mapping from artist/genres to numbers will be saved
+    max_artists: int = 4, # Max number of artists to return
+    max_genres: int = 4, # Max number of artists to return
+    **kwargs # Forwarded to `WAVDataset`
 )
 ```
 
