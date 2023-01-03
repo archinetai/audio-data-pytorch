@@ -22,7 +22,7 @@ repos:
         name: isort (python)
 
 # Checks unused imports, like lengths, etc
--   repo: https://gitlab.com/pycqa/flake8
+-   repo: https://github.com/PyCQA/flake8
     rev: 4.0.0
     hooks:
     -   id: flake8

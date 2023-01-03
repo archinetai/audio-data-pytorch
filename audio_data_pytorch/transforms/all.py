@@ -25,6 +25,7 @@ class AllTransform(nn.Module):
         mono: bool = False,
     ):
         super().__init__()
+        self.random_crop_size = random_crop_size
 
         message = "Loudness requires target_rate"
         assert not exists(loudness) or exists(target_rate), message

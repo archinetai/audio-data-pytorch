@@ -18,6 +18,16 @@ from typing_extensions import TypeGuard
 
 T = TypeVar("T")
 
+def split_artists(artists: str) -> List[str]:
+    return (artists
+            .replace(' w. ', ', ')
+            .replace(' vs. ', ', ')
+            .replace(' feat. ', ', ')
+            .replace(' featuring ', ', ')
+            .replace(' & ', ', ')
+            .replace(' ft. ', ', ')
+            .replace(' with ', ', ')
+            .split(', '))
 
 def exists(val: Optional[T]) -> TypeGuard[T]:
     return val is not None

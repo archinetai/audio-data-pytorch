@@ -19,6 +19,8 @@ setup(
         "tqdm",
         "aiohttp",
         "webdataset",
+        "tinytag",
+        "bidict"
     ],
     classifiers=[
         "Development Status :: 4 - Beta",
