@@ -41,7 +41,7 @@ class MetaDataset(WAVDataset):
                         print("Mappings loaded.")
                     except JSONDecodeError as e:
                         print("Found invalid mapping file:", e)
-            if self.mappings == {}:
+            if not hasattr(self, "mappings"):
                 self.mappings = self.generate_mappings(metadata_mapping_path)
             print("Artists:", len(self.mappings["artists"]))
             print("Genres:", len(self.mappings["genres"]))
@@ -58,7 +58,7 @@ class MetaDataset(WAVDataset):
                 try:
                     tag = TinyTag.get(wav)
                 except Exception:
-                    print("broken file")
+                    print("Skipping corrupt sample: ", wav)
                     continue
                 # Create artist/genre arrays from ID3 artist/genre strings.
                 artists = split_artists(tag.artist or "")
@@ -74,8 +74,9 @@ class MetaDataset(WAVDataset):
                     if not ("genres" in mappings and genre in mappings["genres"]):
                         mappings.setdefault("genres", {}).setdefault(genre, genre_id)
                         genre_id += 1
-            # Save newly generated mappings to disk
-            json.dump(mappings, openfile)
+            # Convert and save newly generated mappings to disk
+            dict_mappings = {"artists": dict(mappings['artists']), "genres": dict(mappings['genres'])}
+            json.dump(dict_mappings, openfile)
         return mappings
 
     def __getitem__(
