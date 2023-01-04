@@ -25,7 +25,7 @@ class MetaDataset(WAVDataset):
         self.max_genres = max_genres
         self.metadata_mapping_path = metadata_mapping_path
 
-        super().__init__(with_idx=True, **kwargs)
+        super().__init__(with_ID3=True, **kwargs)
 
         if metadata_mapping_path:
             # Create or load genre/artist -> id mapping file.
@@ -82,9 +82,7 @@ class MetaDataset(WAVDataset):
         self, idx: int
     ) -> Union[Tensor, Tuple[Tensor, Tensor], Tuple[Tensor, List[str], List[str]]]:
         # Get waveform
-        waveform, idx = super().__getitem__(idx)  # type: ignore
-        # Get ID3 data
-        tag = TinyTag.get(self.wavs[idx])
+        waveform, tag = super().__getitem__(idx)  # type: ignore
         # Split artists by separators like "feat"
         artists = split_artists(tag.artist or "")
         # Split genres by ","

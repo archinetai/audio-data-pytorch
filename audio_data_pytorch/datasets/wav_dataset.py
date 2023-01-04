@@ -6,6 +6,7 @@ import torch
 import torchaudio
 from torch import Tensor
 from torch.utils.data import Dataset
+from tinytag import TinyTag
 
 from ..utils import fast_scandir, is_silence
 
@@ -28,14 +29,14 @@ class WAVDataset(Dataset):
         sample_rate: Optional[int] = None,
         optimized_random_crop_size: int = None,
         check_silence: bool = True,
-        with_idx: bool = False,
+        with_ID3: bool = False,
     ):
         self.paths = path if isinstance(path, (list, tuple)) else [path]
         self.wavs = get_all_wav_filenames(self.paths, recursive=recursive)
         self.transforms = transforms
         self.sample_rate = sample_rate
         self.check_silence = check_silence
-        self.with_idx = with_idx
+        self.with_ID3 = with_ID3
         self.optimized_random_crop_size = optimized_random_crop_size
         assert (
             not optimized_random_crop_size or sample_rate
@@ -51,8 +52,8 @@ class WAVDataset(Dataset):
 
         # Calculate correct number of samples to read based on actual
         # and intended sample rate
-        ratio = math.ceil(sample_rate / self.sample_rate)
-        crop_size = self.optimized_random_crop_size * ratio  # type: ignore
+        ratio = sample_rate / self.sample_rate
+        crop_size = math.ceil(self.optimized_random_crop_size * ratio)  # type: ignore
         frame_offset = random.randint(0, max(length - crop_size, 0))
 
         # Load the samples
@@ -88,7 +89,15 @@ class WAVDataset(Dataset):
             if invalid_audio:
                 idx = random.randrange(len(self))
 
-            if self.optimized_random_crop_size:
+            # Read ID3 tags if specified
+            if self.with_ID3:
+                try:
+                    tag = TinyTag.get(self.wavs[idx])
+                except Exception:
+                    invalid_audio = True
+                    continue
+
+            if hasattr(self, "optimized_random_crop_size"):
                 waveform, sample_rate = self.optimized_random_crop(int(idx))
             else:
                 # If no crop, just load everything
@@ -104,6 +113,10 @@ class WAVDataset(Dataset):
                     orig_freq=sample_rate, new_freq=self.sample_rate
                 )(waveform)
 
+                # Downsampling can result in slightly different sizes.
+                if hasattr(self, "optimized_random_crop_size") and len(waveform[0]) > self.optimized_random_crop_size:
+                    waveform = waveform[:, :self.optimized_random_crop_size]
+
             # Apply other transforms
             if self.transforms:
                 waveform = self.transforms(waveform)
@@ -113,9 +126,9 @@ class WAVDataset(Dataset):
                 invalid_audio = True
                 continue
 
-            # Return with idx if specified
-            if self.with_idx:
-                return waveform, idx
+            # Return with TinyTag ID3 object if specified
+            if self.with_ID3:
+                return waveform, tag
 
             return waveform
 
