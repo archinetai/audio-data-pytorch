@@ -75,7 +75,10 @@ class MetaDataset(WAVDataset):
                         mappings.setdefault("genres", {}).setdefault(genre, genre_id)
                         genre_id += 1
             # Convert and save newly generated mappings to disk
-            dict_mappings = {"artists": dict(mappings['artists']), "genres": dict(mappings['genres'])}
+            dict_mappings = {
+                "artists": dict(mappings["artists"]),
+                "genres": dict(mappings["genres"]),
+            }
             json.dump(dict_mappings, openfile)
         return mappings
 
@@ -83,6 +86,7 @@ class MetaDataset(WAVDataset):
         self, idx: int
     ) -> Union[Tensor, Tuple[Tensor, Tensor], Tuple[Tensor, List[str], List[str]]]:
         # Get waveform
+        tag: TinyTag = None
         waveform, tag = super().__getitem__(idx)  # type: ignore
         # Split artists by separators like "feat"
         artists = split_artists(tag.artist or "")

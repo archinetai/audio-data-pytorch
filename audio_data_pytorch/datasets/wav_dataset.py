@@ -4,9 +4,9 @@ from typing import Callable, List, Optional, Sequence, Tuple, Union
 
 import torch
 import torchaudio
+from tinytag import TinyTag
 from torch import Tensor
 from torch.utils.data import Dataset
-from tinytag import TinyTag
 
 from ..utils import fast_scandir, is_silence
 
@@ -80,6 +80,7 @@ class WAVDataset(Dataset):
         Tuple[Tensor, int],
         Tuple[Tensor, Tensor],
         Tuple[Tensor, List[str], List[str]],
+        Tuple[Tensor, TinyTag],
     ]:  # type: ignore
         invalid_audio = False
 
@@ -89,23 +90,20 @@ class WAVDataset(Dataset):
             if invalid_audio:
                 idx = random.randrange(len(self))
 
-            # Read ID3 tags if specified
-            if self.with_ID3:
-                try:
+            # Catch invalid audio files
+            try:
+                # Read ID3 tags if specified
+                if self.with_ID3:
                     tag = TinyTag.get(self.wavs[idx])
-                except Exception:
-                    invalid_audio = True
-                    continue
 
-            if hasattr(self, "optimized_random_crop_size"):
-                waveform, sample_rate = self.optimized_random_crop(int(idx))
-            else:
-                # If no crop, just load everything
-                try:
+                # Read with optimized crop if needed
+                if hasattr(self, "optimized_random_crop_size"):
                     waveform, sample_rate = self.optimized_random_crop(int(idx))
-                except Exception:
-                    invalid_audio = True
-                    continue
+                else:
+                    waveform, sample_rate = torchaudio.load(filepath=self.wavs[idx])
+            except Exception:
+                invalid_audio = True
+                continue
 
             # Apply sample rate transform if necessary
             if self.sample_rate and sample_rate != self.sample_rate:
@@ -114,8 +112,8 @@ class WAVDataset(Dataset):
                 )(waveform)
 
                 # Downsampling can result in slightly different sizes.
-                if hasattr(self, "optimized_random_crop_size") and len(waveform[0]) > self.optimized_random_crop_size:
-                    waveform = waveform[:, :self.optimized_random_crop_size]
+                if hasattr(self, "optimized_random_crop_size"):
+                    waveform = waveform[:, : self.optimized_random_crop_size]
 
             # Apply other transforms
             if self.transforms:
