@@ -20,7 +20,9 @@ setup(
         "aiohttp",
         "webdataset",
         "tinytag",
-        "bidict"
+        "bidict",
+        "pandas",
+        "yt_dlp"
     ],
     classifiers=[
         "Development Status :: 4 - Beta",

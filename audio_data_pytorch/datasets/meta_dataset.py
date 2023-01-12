@@ -25,7 +25,7 @@ class MetaDataset(WAVDataset):
         self.max_genres = max_genres
         self.metadata_mapping_path = metadata_mapping_path
 
-        super().__init__(with_idx=True, **kwargs)
+        super().__init__(with_ID3=True, **kwargs)
 
         if metadata_mapping_path:
             # Create or load genre/artist -> id mapping file.
@@ -41,10 +41,12 @@ class MetaDataset(WAVDataset):
                         print("Mappings loaded.")
                     except JSONDecodeError as e:
                         print("Found invalid mapping file:", e)
-            if self.mappings == {}:
+            if not hasattr(self, "mappings"):
                 self.mappings = self.generate_mappings(metadata_mapping_path)
-            print("Artists:", len(self.mappings["artists"]))
-            print("Genres:", len(self.mappings["genres"]))
+            self.num_artists = len(self.mappings["artists"])
+            self.num_genres = len(self.mappings["genres"])
+            print("Artists:", self.num_artists)
+            print("Genres:", self.num_genres)
 
     def generate_mappings(self, metadata_mapping_path):
         mappings = {"artists": bidict(), "genres": bidict()}
@@ -58,7 +60,7 @@ class MetaDataset(WAVDataset):
                 try:
                     tag = TinyTag.get(wav)
                 except Exception:
-                    print("broken file")
+                    print("Skipping corrupt sample: ", wav)
                     continue
                 # Create artist/genre arrays from ID3 artist/genre strings.
                 artists = split_artists(tag.artist or "")
@@ -74,17 +76,20 @@ class MetaDataset(WAVDataset):
                     if not ("genres" in mappings and genre in mappings["genres"]):
                         mappings.setdefault("genres", {}).setdefault(genre, genre_id)
                         genre_id += 1
-            # Save newly generated mappings to disk
-            json.dump(mappings, openfile)
+            # Convert and save newly generated mappings to disk
+            dict_mappings = {
+                "artists": dict(mappings["artists"]),
+                "genres": dict(mappings["genres"]),
+            }
+            json.dump(dict_mappings, openfile)
         return mappings
 
     def __getitem__(
         self, idx: int
     ) -> Union[Tensor, Tuple[Tensor, Tensor], Tuple[Tensor, List[str], List[str]]]:
         # Get waveform
-        waveform, idx = super().__getitem__(idx)  # type: ignore
-        # Get ID3 data
-        tag = TinyTag.get(self.wavs[idx])
+        tag: TinyTag = None
+        waveform, tag = super().__getitem__(idx)  # type: ignore
         # Split artists by separators like "feat"
         artists = split_artists(tag.artist or "")
         # Split genres by ","
