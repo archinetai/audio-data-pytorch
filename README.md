@@ -29,7 +29,7 @@ WAVDataset(
     path: Union[str, Sequence[str]], # Path or list of paths from which to load files
     recursive: bool = False # Recursively load files from provided paths
     sample_rate: bool = False, # Specify sample rate to convert files to on read
-    optimized_random_crop_size: int = None, # Load small portions of files randomly
+    random_crop_size: int = None, # Load small portions of files randomly
     transforms: Optional[Callable] = None, # Transforms to apply to audio files
     check_silence: bool = True # Discards silent samples if true
 )
