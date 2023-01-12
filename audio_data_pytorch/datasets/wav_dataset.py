@@ -27,7 +27,7 @@ class WAVDataset(Dataset):
         recursive: bool = False,
         transforms: Optional[Callable] = None,
         sample_rate: Optional[int] = None,
-        optimized_random_crop_size: int = None,
+        random_crop_size: int = None,
         check_silence: bool = True,
         with_ID3: bool = False,
     ):
@@ -37,9 +37,9 @@ class WAVDataset(Dataset):
         self.sample_rate = sample_rate
         self.check_silence = check_silence
         self.with_ID3 = with_ID3
-        self.optimized_random_crop_size = optimized_random_crop_size
+        self.random_crop_size = random_crop_size
         assert (
-            not optimized_random_crop_size or sample_rate
+            not random_crop_size or sample_rate
         ), "Optimized random crop requires sample_rate to be set."
 
     # Instead of loading the whole file and chopping out our crop,
@@ -53,7 +53,7 @@ class WAVDataset(Dataset):
         # Calculate correct number of samples to read based on actual
         # and intended sample rate
         ratio = sample_rate / self.sample_rate
-        crop_size = math.ceil(self.optimized_random_crop_size * ratio)  # type: ignore
+        crop_size = math.ceil(self.random_crop_size * ratio)  # type: ignore
         frame_offset = random.randint(0, max(length - crop_size, 0))
 
         # Load the samples
@@ -97,7 +97,7 @@ class WAVDataset(Dataset):
                     tag = TinyTag.get(self.wavs[idx])
 
                 # Read with optimized crop if needed
-                if hasattr(self, "optimized_random_crop_size"):
+                if hasattr(self, "random_crop_size"):
                     waveform, sample_rate = self.optimized_random_crop(int(idx))
                 else:
                     waveform, sample_rate = torchaudio.load(filepath=self.wavs[idx])
@@ -112,8 +112,8 @@ class WAVDataset(Dataset):
                 )(waveform)
 
                 # Downsampling can result in slightly different sizes.
-                if hasattr(self, "optimized_random_crop_size"):
-                    waveform = waveform[:, : self.optimized_random_crop_size]
+                if hasattr(self, "random_crop_size"):
+                    waveform = waveform[:, : self.random_crop_size]
 
             # Apply other transforms
             if self.transforms:

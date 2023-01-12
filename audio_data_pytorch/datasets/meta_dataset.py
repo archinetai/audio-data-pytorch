@@ -43,8 +43,10 @@ class MetaDataset(WAVDataset):
                         print("Found invalid mapping file:", e)
             if not hasattr(self, "mappings"):
                 self.mappings = self.generate_mappings(metadata_mapping_path)
-            print("Artists:", len(self.mappings["artists"]))
-            print("Genres:", len(self.mappings["genres"]))
+            self.num_artists = len(self.mappings["artists"])
+            self.num_genres = len(self.mappings["genres"])
+            print("Artists:", self.num_artists)
+            print("Genres:", self.num_genres)
 
     def generate_mappings(self, metadata_mapping_path):
         mappings = {"artists": bidict(), "genres": bidict()}
