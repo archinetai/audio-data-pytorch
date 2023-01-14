@@ -52,8 +52,8 @@ class WAVDataset(Dataset):
 
         # Calculate correct number of samples to read based on actual
         # and intended sample rate
-        ratio = sample_rate / self.sample_rate
-        crop_size = math.ceil(self.random_crop_size * ratio)  # type: ignore
+        ratio = 1 if (self.sample_rate is None) else sample_rate / self.sample_rate
+        crop_size = length if (self.random_crop_size is None) else math.ceil(self.random_crop_size * ratio)  # type: ignore
         frame_offset = random.randint(0, max(length - crop_size, 0))
 
         # Load the samples
