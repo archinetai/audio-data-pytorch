@@ -3,7 +3,7 @@ from setuptools import find_packages, setup
 setup(
     name="audio-data-pytorch",
     packages=find_packages(exclude=[]),
-    version="0.0.17",
+    version="0.0.18",
     license="MIT",
     description="Audio Data - PyTorch",
     long_description_content_type="text/markdown",
@@ -22,7 +22,10 @@ setup(
         "tinytag",
         "bidict",
         "pandas",
-        "yt_dlp"
+        "yt_dlp",
+        "scipy",
+        "webdataset",
+        "numpy",
     ],
     classifiers=[
         "Development Status :: 4 - Beta",

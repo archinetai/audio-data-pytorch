@@ -6,7 +6,8 @@ import pandas as pd
 from tqdm import tqdm
 
 from ..utils import Decompressor, Downloader, camel_to_snake, run_async
-from .audio_web_dataset import AudioProcess, AudioWebDataset
+from .audio_web_dataset import AudioWebDataset
+from .audio_web_dataset_preprocessing import AudioProcess
 
 
 class ClothoDataset(AudioWebDataset):

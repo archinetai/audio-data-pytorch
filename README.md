@@ -55,10 +55,14 @@ print(info.keys()) # dict_keys(['text'])
 ```py
 dataset = AudioWebDataset(
     urls: Union[str, Sequence[str]],
-    transforms: Optional[Callable] = None, # Transforms to apply to audio files
-    batch_size: Optional[int] = None, # Why is batch_size here? See https://webdataset.github.io/webdataset/gettingstarted/#webdataset-and-dataloader
-    shuffle: int = 128, # Shuffle in groups of 128
+    shuffle: Optional[int] = None,
+    batch_size: Optional[int] = None,
+    transforms: Optional[Callable] = None,# Transforms to apply to audio files
+    use_wav_processor: bool = False, # Set this to True if your tar files only use .wav
+    crop_size: Optional[int] = None,
+    max_crops: Optional[int] = None,
     **kwargs, # Forwarded to WebDataset class
+
 )
 ```
 

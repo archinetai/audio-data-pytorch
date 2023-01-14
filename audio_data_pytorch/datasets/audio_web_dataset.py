@@ -1,189 +1,223 @@
-import glob
+import io
 import json
-import os
-import re
-import tarfile
-from typing import Callable, Dict, List, Optional, Sequence, Union
+from typing import Callable, List, Optional, Sequence, Union
 
-import torchaudio
-from torch import nn
-from tqdm import tqdm
-from webdataset import WebDataset, torch_audio
-
-from ..transforms import Crop, Loudness, Mono, Resample, Stereo
-from ..utils import Decompressor, Downloader, exists, run_async
-
-"""
-Preprocessing
-"""
+import numpy as np
+import scipy
+import torch
+import webdataset as wds
+from torch import Tensor
 
 
-class AudioProcess:
-    def __init__(
-        self,
-        path: str,
-        info: Dict,
-        sample_rate: Optional[int] = None,
-        transforms: Optional[Callable] = None,
-    ):
-        self.path = path
-        self.sample_rate = sample_rate
-        self.transforms = transforms
-        self.info = info
-        self.path_prefix = f"{os.path.splitext(self.path)[0]}_processed"
-        self.wav_dest_path = None
-        self.json_dest_path = None
-
-    def process_wav(self):
-        waveform, rate = torchaudio.load(self.path)
-
-        if exists(self.sample_rate):
-            resample = Resample(source=rate, target=self.sample_rate)
-            waveform = resample(waveform)
-            rate = self.sample_rate
-
-        if exists(self.transforms):
-            waveform = self.transforms(waveform)
-
-        wav_dest_path = f"{self.path_prefix}.wav"
-        torchaudio.save(wav_dest_path, waveform, rate)
-
-        self.wav_dest_path = wav_dest_path
-        return wav_dest_path
-
-    def process_info(self):
-        json_dest_path = f"{self.path_prefix}.json"
-        with open(json_dest_path, "w") as f:
-            json.dump(self.info, f)
-
-        self.json_dest_path = json_dest_path
-        return json_dest_path
-
-    def __enter__(self):
-        wav_processed_path = self.process_wav()
-        json_processed_path = self.process_info()
-        return wav_processed_path, json_processed_path
-
-    def __exit__(self, *args):
-        os.remove(self.wav_dest_path)
-        os.remove(self.json_dest_path)
+def exists(x):
+    return x is not None
 
 
-class AudioWebDatasetPreprocess:
-    def __init__(
-        self,
-        name: str,
-        root: Union[str, Sequence[str]],
-        urls: List[str],
-        crop_length: float,
-        sample_rate: int = 48000,
-        stereo: bool = True,
-        mono: bool = False,
-        loudness: Optional[int] = None,
-    ):
-        self.name = name
-        self.root = root
-        self.urls = urls
-        self.sample_rate = sample_rate
-        self.transform = nn.Sequential(
-            Crop(int(crop_length * sample_rate)),
-            Mono() if mono else nn.Identity(),
-            Stereo() if stereo else nn.Identity(),
-            Loudness(sampling_rate=sample_rate, target=loudness)
-            if exists(loudness)
-            else nn.Identity(),
-        )
-
-        run_async(self.preprocess())
-
-    def str_to_tags(self, str: str) -> List[str]:
-        return re.split(r"\s*[.,;_/]+\s*|\s+[-]+\s+", str)
-
-    async def preprocess(self):
-        urls, path = self.urls, self.root
-        tarfile_name = os.path.join(path, f"{self.name}.tar")
-        waveform_id = 0
-
-        async with Downloader(urls, path=path) as files:
-            async with Decompressor(files, path=path, remove_on_exit=True) as folders:
-                with tarfile.open(tarfile_name, "w") as archive:
-                    for folder in tqdm(folders):
-                        for wav in tqdm(glob.glob(folder + "/**/*.wav")):
-                            waveform, rate = torchaudio.load(wav)
-                            resample = Resample(source=rate, target=self.sample_rate)
-                            waveform = self.transform(resample(waveform))
-                            txt = os.path.splitext(os.path.relpath(wav, folder))[0]
-                            info = dict(
-                                tags=self.str_to_tags(txt), sample_rate=self.sample_rate
-                            )
-
-                            file_name = f"{waveform_id:06d}"
-                            wav_name = f"{file_name}.wav"
-                            json_name = f"{file_name}.json"
-
-                            wav_path = os.path.join(path, wav_name)
-                            json_path = os.path.join(path, json_name)
-
-                            torchaudio.save(wav_path, waveform, self.sample_rate)
-                            with open(json_path, "w") as f:
-                                json.dump(info, f)
-
-                            archive.add(wav_path, arcname=wav_name)
-                            archive.add(json_path, arcname=json_name)
-
-                            os.remove(wav_path)
-                            os.remove(json_path)
-
-                            waveform_id += 1
-
-
-"""
-Dataset
-"""
-
-
-def get_all_tar_filenames(paths: Sequence[str], recursive: bool) -> List[str]:
-    extensions = ["tar", "tar.gz"]
-    filenames = []
-    for ext_name in extensions:
-        ext = f"**/*.{ext_name}" if recursive else f"*.{ext_name}"
-        for path in paths:
-            filenames.extend(glob.glob(os.path.join(path, ext), recursive=recursive))
-    return filenames
-
-
-def identity(x):
-    return x
+def default(val, d):
+    return val if exists(val) else d
 
 
 def first(x):
     return x[0]
 
 
-class AudioWebDataset(WebDataset):
+def identity(x):
+    return x
 
-    # Why batch_size in a dataset constructor?
-    # https://webdataset.github.io/webdataset/gettingstarted/#webdataset-and-dataloader
 
+def log_and_continue(exn):
+    print(f"Handling webdataset error ({repr(exn)}). Ignoring.")
+    return True
+
+
+def preprocess(item):
+    """Optimized joint processing of .wav audio file and .json metadata"""
+    # Json
+    metadata_file = item["json"]
+    metadata = json.loads(metadata_file.decode("utf-8"))
+    # Audio
+    data = item["wav"]
+    with io.BytesIO(data) as stream:
+        rate, array = scipy.io.wavfile.read(stream)  # wav only but the fastest
+        wave = torch.from_numpy(np.copy(array.T))
+    return wave, metadata
+
+
+def crop_and_pad(
+    tensor: Tensor,
+    crop_size: int,
+    max_crops: Optional[int] = None,
+) -> List[Tensor]:
+    """Crops a tensor in chunks and returns each chunk"""
+    channels, length = tensor.shape
+    num_crops = length // crop_size
+    max_crops = min(default(max_crops, num_crops), num_crops)
+    crops = []
+    # Iterate over the crops
+    for i in range(max_crops):  # type: ignore
+        crop = tensor[:, i * crop_size : (i + 1) * crop_size]  # Crop the tensor
+        crops.append(crop)
+    # No zero padding needed in this cases
+    if max_crops < num_crops or length % crop_size == 0:  # type: ignore
+        return crops
+    else:
+        # Pad the last crop with zeros
+        last_crop = tensor[:, num_crops * crop_size :]
+        padding = torch.zeros(channels, crop_size - last_crop.shape[-1])
+        padded_crop = torch.cat([last_crop, padding], dim=1)
+        crops.append(padded_crop)
+        return crops
+
+
+def _crop_audio(data, crop_size: int, max_crops: Optional[int] = None, handler=None):
+    """WebDataset crop filter, yields sequential crops"""
+    for sample in data:
+        audio, info = sample
+        try:
+            # Crop audio in sequential chunks
+            crops = crop_and_pad(audio, crop_size=crop_size, max_crops=max_crops)
+            # Yield each crop
+            for crop in crops:
+                yield (crop, info)
+        except Exception as exn:
+            if handler(exn):
+                continue
+            else:
+                break
+
+
+crop_audio = wds.filters.RestCurried(_crop_audio)
+
+
+class AudioWebDataset(wds.WebDataset):
     def __init__(
         self,
         urls: Union[str, Sequence[str]],
-        transforms: Optional[Callable] = None,
+        shuffle: Optional[int] = None,
         batch_size: Optional[int] = None,
-        shuffle: int = 128,
+        transforms: Optional[Callable] = None,
+        use_wav_processor: bool = False,
+        crop_size: Optional[int] = None,
+        max_crops: Optional[int] = None,
         **kwargs,
     ):
-        super().__init__(urls=urls, **kwargs)
+        super().__init__(urls=urls, resampled=True, handler=log_and_continue, **kwargs)
 
-        (
-            self.shuffle(shuffle)
-            .decode(torch_audio)
-            .to_tuple("wav", "json")
-            .map_tuple(first, identity)
-        )
+        # Decode audio
+        if use_wav_processor:
+            # More efficient but for wav only
+            self.map(preprocess, handler=log_and_continue)
+        else:
+            self.decode(wds.torch_audio, handler=log_and_continue)
+            self.to_tuple("wav", "json", handler=log_and_continue)
+            self.map_tuple(first, identity, handler=log_and_continue)
 
+        # Transform audio
         if exists(transforms):
-            self.map_tuple(transforms, identity)
+            self.map_tuple(transforms, identity, handler=log_and_continue)
 
+        # Crop by yielding each crop sequentially
+        if exists(crop_size):
+            self.compose(
+                crop_audio(
+                    crop_size=crop_size, max_crops=max_crops, handler=log_and_continue
+                )
+            )
+
+        # Shuffle
+        if exists(shuffle):
+            self.shuffle(shuffle)
+
+        # Batch items
         if exists(batch_size):
             self.batched(batch_size)
+
+
+class AudioWebDataloader(wds.WebLoader):
+    def __init__(
+        self,
+        urls: Union[str, Sequence[str]],
+        num_workers: int,
+        batch_size: int,
+        shuffle: int,
+        epoch_length: Optional[int] = None,
+        **kwargs,
+    ):
+        # Build dataset
+        dataset = AudioWebDataset(urls=urls, shuffle=shuffle, batch_size=None, **kwargs)
+
+        super().__init__(
+            dataset=dataset,
+            batch_size=None,
+            num_workers=num_workers,
+            shuffle=False,
+            pin_memory=True,
+            prefetch_factor=2,
+        )
+
+        # Shuffle between workers
+        self.shuffle(shuffle)
+
+        # Batching
+        self.batched(batch_size)
+
+        # Epoched
+        if exists(epoch_length):
+            self.with_epoch(epoch_length)
+
+
+if __name__ == "__main__":
+
+    batch_size = 32
+
+    loader = AudioWebDataloader(
+        urls="pipe:aws s3 cp s3://thebucket/mix-{000000..000012}.tar -",
+        batch_size=batch_size,
+        shuffle=256,
+        num_workers=12,
+        use_wav_processor=True,
+        # crop_size=2**18,
+        # max_crops=100
+    )
+
+    # Or AudioWebDataset using torch dataloader
+    # loader = torch.utils.data.DataLoader(
+    #     dataset=AudioWebDataset(
+    #         urls='pipe:aws s3 cp s3://thebucket/mix-{000000..000012}.tar -',
+    #         batch_size=batch_size,
+    #         shuffle=256,
+    #     ),
+    #     num_workers=12,
+    #     batch_size=None,
+    #     shuffle=False,
+    #     pin_memory=True,
+    #     prefetch_factor=2,
+    # )
+
+    """ Logging """
+
+    # def dict_hash(d) -> str:
+    #     import hashlib
+    #     dhash = hashlib.md5()
+    #     dhash.update(json.dumps(d, sort_keys=True).encode())
+    #     return dhash.hexdigest()
+
+    # for i, batch in enumerate(loader):
+    #     audios, infos = batch
+    #     for j, (audio, info) in enumerate(zip(audios, infos)):
+    #         # We hash the dict to check the occurrence of repeating items by info
+    #         print(i, j, audio.shape, dict_hash(info)[0:8])
+
+    """ Timing """
+
+    # import time
+    # count, t0 = 0, time.time()
+    # for batch in loader:
+    #     count += 1
+    #     if count > 180:
+    #         break
+    # tf = time.time()
+    # print(f"BATCH/S: {count*batch_size/(tf-t0)}")
+
+    # BATCH/S: 114.28585607357242, with crop_size=2**18 from 2**21 length items
+    # BATCH/S: 30.297565637487082, without cropping
