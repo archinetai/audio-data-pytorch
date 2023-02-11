@@ -109,7 +109,7 @@ class AudioWebDataset(wds.WebDataset):
             self.map(preprocess, handler=log_and_continue)
         else:
             self.decode(wds.torch_audio, handler=log_and_continue)
-            self.to_tuple("wav", "json", handler=log_and_continue)
+            self.to_tuple("wav;flac", "json", handler=log_and_continue)
             self.map_tuple(first, identity, handler=log_and_continue)
 
         # Transform audio
